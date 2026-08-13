@@ -43,7 +43,7 @@ runs:
           exit 1
         
       - name: Checkout GitHub repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Select Java Version
         uses: actions/setup-java@v5.6.0
