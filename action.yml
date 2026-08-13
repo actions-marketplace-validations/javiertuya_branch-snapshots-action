@@ -35,18 +35,18 @@ inputs:
 runs:
   using: "composite"
   steps:
-      - name: Check that event is not PR
-        if: github.event_name == 'pull_request'
+      - name: Check that event is not PR (except this action repo)
+        if: github.event_name == 'pull_request' && github.repository != 'javiertuya/branch-snapshots-action'
         shell: bash
         run: |
           echo "ERROR: Branch snapshots can not be created by pull request events"
           exit 1
         
       - name: Checkout GitHub repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Select Java Version
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.6.0
         with:
           distribution: 'temurin'
           java-version: ${{ inputs.java-version }}
@@ -91,12 +91,26 @@ runs:
 #          ignore-versions: ${{ inputs.always-keep-regex }}
 
       # The above action stoped working, removing versions usintg API directly in this action
+      # setup-node resolves node-version-file against the consumer workspace, not the action path,
+      # so the version is read here to keep .nvmrc as the single source of truth
+      - name: Read Node version
+        id: node-version
+        if: inputs.delete-old-snapshots == 'true'
+        shell: bash
+        run: echo "version=$(cat ${{ github.action_path }}/delete-snapshots/.nvmrc)" >> $GITHUB_OUTPUT
+
+      - name: Select Node Version
+        if: inputs.delete-old-snapshots == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ steps.node-version.outputs.version }}
+
       - name: Delete old snapshots
         if: inputs.delete-old-snapshots == 'true'
         shell: bash
         working-directory: ${{ github.action_path }}/delete-snapshots
         run: |
-          npm install
+          npm ci --omit=dev
           node src/index.js \
             --token "${{ inputs.token }}" \
             --repoFullName "${{ github.repository }}" \
